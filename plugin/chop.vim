@@ -1,6 +1,6 @@
 function! s:chop()
   let res = webapi#http#post('http://chopapp.com/code_snips', {
-  \  'code': getline(1, '$'),
+  \  'code': join(getline(1, '$'), "\n"),
   \  'language': &ft,
   \})
   if res.status !~ '^2'
