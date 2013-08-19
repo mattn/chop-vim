@@ -21,18 +21,39 @@ function! s:comment(line1, line2)
   echomsg 'Commented!'
 endfunction
 
-function! s:chop()
-  let res = webapi#http#post('http://chopapp.com/code_snips', {
-  \  'code': join(getline(1, '$'), "\n"),
-  \  'language': &ft,
-  \})
-  if res.status !~ '^2'
-    echohl ErrorMsg | echomsg res.message | echohl None
-    return
+function! s:chop(id)
+  if len(a:id) == 0
+    let res = webapi#http#post('http://chopapp.com/code_snips', {
+    \  'code': join(getline(1, '$'), "\n"),
+    \  'language': &ft,
+    \})
+    if res.status !~ '^2'
+      echohl ErrorMsg | echomsg res.message | echohl None
+      return
+    endif
+    let b:chop_id = webapi#json#decode(res.content)['token']
+    echomsg printf('http://chopapp.com/#%s', b:chop_id)
+  else
+    let res = webapi#http#get(printf('http://chopapp.com/code_snips/%s', a:id))
+    if res.status !~ '^2'
+      echohl ErrorMsg | echomsg res.message | echohl None
+      return
+    endif
+    silent noautocmd new
+    setlocal noswapfile
+    let old_undolevels = &undolevels
+    set undolevels=-1
+    silent %d _
+    let lines = webapi#json#decode(res.content)['lines']
+    for line in range(len(lines))
+      let html = '<div>' . lines[line] . '</div>'
+      let v = webapi#html#decodeEntityReference(webapi#html#parse(html).value())
+      call setline(line, v)
+    endfor
+    let &undolevels = old_undolevels
+    let b:chop_id = a:id
   endif
-  let b:chop_id = webapi#json#decode(res.content)['token']
-  echomsg printf('http://chopapp.com/#%s', b:chop_id)
 endfunction
 
-command! Chop call s:chop()
+command! -nargs=? Chop call s:chop(<q-args>)
 command! -range ChopComment call s:comment(<line1>, <line2>)
